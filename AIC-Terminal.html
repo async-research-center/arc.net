@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIC-6 Terminal — Async Research Institute</title>
+<style>
+/* ── Reset ── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Courier New',Courier,monospace}
+
+/* ── CRT Shell ── */
+#crt{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;display:flex;flex-direction:column}
+#crt::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 1px,rgba(0,0,0,.18) 1px,rgba(0,0,0,.18) 2px);pointer-events:none;z-index:100}
+#crt::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.7) 100%);pointer-events:none;z-index:101}
+
+/* ── Title Bar ── */
+#titlebar{background:#00ff41;color:#000;padding:2px 8px;font-size:13px;font-weight:bold;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;z-index:1;position:relative}
+
+/* ── Terminal Body ── */
+#terminal-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;color:#00ff41;font-size:14px;line-height:1.5;text-shadow:0 0 6px #00ff41,0 0 2px #00aa2a;position:relative;z-index:1;white-space:pre-wrap;word-break:break-all}
+#terminal-body::-webkit-scrollbar{width:6px}
+#terminal-body::-webkit-scrollbar-track{background:#000}
+#terminal-body::-webkit-scrollbar-thumb{background:#00aa2a}
+
+/* ── Input Row ── */
+#input-row{display:none;align-items:center;padding:4px 20px 14px;position:relative;z-index:1}
+#prompt{color:#00ff41;text-shadow:0 0 6px #00ff41;font-size:14px;white-space:nowrap;flex-shrink:0}
+#cmd-input{flex:1;background:transparent;border:none;outline:none;color:#00ff41;font-size:14px;font-family:'Courier New',Courier,monospace;text-shadow:0 0 6px #00ff41;caret-color:#00ff41;padding:0 0 0 2px;line-height:1.5}
+
+/* ── Text Colour Classes ── */
+.bright{color:#aaffbb;text-shadow:0 0 8px #aaffbb,0 0 3px #00ff41}
+.dim{color:#00aa2a;text-shadow:0 0 4px #00aa2a}
+.err{color:#ff4444;text-shadow:0 0 6px #ff4444}
+.amb{color:#ffb000;text-shadow:0 0 6px #ffb000}
+.echo{color:#aaffbb;text-shadow:0 0 8px #aaffbb}
+
+/* ══════════════════════════════════════════════════
+   APP OVERLAY  (covers entire screen when active)
+══════════════════════════════════════════════════ */
+#app-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;font-family:'Courier New',Courier,monospace;font-size:13px}
+#app-overlay.on{display:flex;flex-direction:column}
+
+/* ── Common app child: fill overlay ── */
+.app-screen{display:none;flex:1;flex-direction:column;width:100%;height:100%;overflow:hidden}
+.app-screen.on{display:flex}
+
+/* ════════════════════════
+   NORTON COMMANDER
+════════════════════════ */
+#nc-root{background:#000080;color:#aaa;outline:none}
+.nc-topbar{background:#000080;color:#ff0;text-align:center;padding:2px 0;font-weight:bold;border-bottom:1px solid #aaa;flex-shrink:0}
+.nc-panels{display:flex;flex:1;overflow:hidden}
+.nc-panel{flex:1;display:flex;flex-direction:column;border:1px solid #aaa;margin:2px;overflow:hidden}
+.nc-panel.nc-act{border-color:#fff;color:#fff}
+.nc-panel.nc-inact{border-color:#555;color:#888}
+.nc-phdr{background:#000060;color:#ff0;padding:1px 4px;font-weight:bold;overflow:hidden;font-size:12px;flex-shrink:0}
+.nc-psubhdr{background:#000060;color:#888;padding:1px 4px;border-bottom:1px solid #555;font-size:11px;flex-shrink:0}
+.nc-filelist{flex:1;overflow:hidden}
+.nc-row{padding:0 4px;white-space:pre;overflow:hidden;line-height:1.4;font-size:12px}
+.nc-row.nc-sel{background:#0aa;color:#000}
+.nc-msg{background:#000080;color:#fff;padding:2px 6px;border-top:1px solid #aaa;font-size:12px;min-height:20px;flex-shrink:0}
+.nc-fnbar{display:flex;background:#000;color:#aaa;font-size:11px;flex-shrink:0}
+.nc-fn{flex:1;text-align:center;padding:1px 0;overflow:hidden}
+.nc-fnum{color:#000;background:#aaa;padding:0 2px;margin-right:1px}
+
+/* ════════════════════════
+   XTREE GOLD
+════════════════════════ */
+#xt-root{background:#000;color:#00ff41;text-shadow:0 0 4px #00ff41;outline:none}
+.xt-title{background:#003300;color:#00ff41;text-align:center;padding:2px;font-weight:bold;border-bottom:1px solid #005500;flex-shrink:0}
+.xt-body{display:flex;flex:1;overflow:hidden}
+.xt-tree-pane{width:38%;border-right:1px solid #003300;padding:0 4px;overflow:hidden}
+.xt-files-pane{flex:1;padding:0 4px;overflow:hidden}
+.xt-phdr{color:#5f5;font-weight:bold;padding:2px 0;font-size:12px;border-bottom:1px solid #003300}
+.xt-row{white-space:pre;overflow:hidden;font-size:12px;line-height:1.4;padding:0 2px}
+.xt-row.xt-sel{background:#003300;color:#fff;text-shadow:none}
+.xt-stats{background:#001100;color:#00aa2a;padding:2px 8px;font-size:12px;border-top:1px solid #003300;flex-shrink:0}
+.xt-fnbar{display:flex;gap:8px;background:#000;color:#5f5;padding:2px 8px;font-size:11px;flex-wrap:wrap;flex-shrink:0}
+
+/* ════════════════════════
+   WORD PROCESSORS (shared wrapper)
+════════════════════════ */
+#wp-inner{display:flex;flex:1;flex-direction:column;outline:none}
+.wp-title{padding:2px 8px;font-weight:bold;flex-shrink:0;text-align:center}
+.wp-menu{padding:1px 8px;flex-shrink:0;overflow:hidden;font-size:12px}
+.wp-ruler{padding:0 8px;flex-shrink:0;font-size:11px}
+#wp-ta{flex:1;border:none;outline:none;padding:8px 12px;font-family:'Courier New',Courier,monospace;font-size:13px;resize:none;line-height:1.6;width:100%;min-height:0}
+.wp-status{padding:2px 8px;flex-shrink:0;font-size:12px;min-height:18px}
+.wp-bottom{padding:2px 8px;flex-shrink:0;font-size:12px}
+.wp-fns{display:flex;flex-wrap:wrap;flex-shrink:0;padding:1px 2px;gap:2px}
+.wp-fn{padding:1px 4px;font-size:11px}
+/* WordPerfect (blue) */
+#wp-inner.wp-wp{background:#0000aa;color:#fff}
+#wp-inner.wp-wp .wp-title{background:#000066;color:#ff0}
+#wp-inner.wp-wp .wp-menu{background:#aaa;color:#000}
+#wp-inner.wp-wp .wp-ruler{background:#0000aa;color:#888}
+#wp-inner.wp-wp #wp-ta{background:#0000aa;color:#fff;caret-color:#fff}
+#wp-inner.wp-wp .wp-status{background:#0000aa;color:#0ff}
+#wp-inner.wp-wp .wp-bottom{background:#0000aa;color:#ff0}
+#wp-inner.wp-wp .wp-fns{background:#000}
+#wp-inner.wp-wp .wp-fn{background:#aaa;color:#000}
+/* WordStar (dark) */
+#wp-inner.wp-ws{background:#1a1a1a;color:#d0d0d0}
+#wp-inner.wp-ws .wp-title{background:#333;color:#ff0}
+#wp-inner.wp-ws .wp-menu{background:#000;color:#0f0;font-size:11px}
+#wp-inner.wp-ws .wp-ruler{background:#1a1a1a;color:#555}
+#wp-inner.wp-ws #wp-ta{background:#111;color:#d0d0d0;caret-color:#d0d0d0}
+#wp-inner.wp-ws .wp-status{background:#000;color:#0f0}
+#wp-inner.wp-ws .wp-bottom{background:#333;color:#fff}
+#wp-inner.wp-ws .wp-fns{background:#000}
+#wp-inner.wp-ws .wp-fn{background:#aaa;color:#000}
+/* MS Word (grey) */
+#wp-inner.wp-word{background:#aaa;color:#000}
+#wp-inner.wp-word .wp-title{background:#000080;color:#fff}
+#wp-inner.wp-word .wp-menu{background:#bbb;color:#000}
+#wp-inner.wp-word .wp-ruler{background:#888;color:#000}
+#wp-inner.wp-word #wp-ta{background:#fff;color:#000;caret-color:#000}
+#wp-inner.wp-word .wp-status{background:#aaa;color:#000080}
+#wp-inner.wp-word .wp-bottom{background:#000080;color:#fff}
+#wp-inner.wp-word .wp-fns{background:#aaa}
+#wp-inner.wp-word .wp-fn{background:#888;color:#000;border:1px solid #555}
+
+/* ════════════════════════
+   DELUXE PAINT II
+════════════════════════ */
+#dp-root{background:#1a0030;color:#00ff41;outline:none;user-select:none}
+.dp-title{background:#2a0060;color:#ff55ff;padding:2px 8px;font-weight:bold;flex-shrink:0;font-size:12px}
+.dp-workspace{display:flex;flex:1;overflow:hidden}
+.dp-toolbar{width:46px;background:#220044;border-right:1px solid #605;display:flex;flex-direction:column;align-items:center;padding:4px 2px;gap:2px;overflow-y:auto;flex-shrink:0}
+.dp-sec{color:#aa55ff;font-size:9px;width:100%;text-align:center;margin:2px 0}
+.dp-btn{width:32px;height:20px;background:#330055;color:#00ff41;border:1px solid #605;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;flex-shrink:0}
+.dp-btn:hover,.dp-btn.sel{background:#6600aa;border-color:#ff55ff;color:#fff}
+.dp-swatch{width:16px;height:16px;cursor:pointer;border:1px solid #333;flex-shrink:0}
+.dp-swatch.sel{outline:2px solid #fff;outline-offset:1px}
+.dp-canvas-area{flex:1;overflow:auto;background:#00000f;display:flex;align-items:flex-start;justify-content:flex-start;padding:4px;cursor:crosshair}
+#dp-canvas{border:1px solid #400040;background:#00000f;line-height:0;font-size:0}
+.dp-row{display:flex;height:16px}
+.dp-cell{width:12px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;cursor:crosshair;flex-shrink:0;line-height:1}
+.dp-cell.cur-cell{outline:1px solid #ff55ff}
+.dp-statusbar{background:#220044;color:#aa55ff;padding:2px 8px;font-size:11px;flex-shrink:0}
+.dp-bottombar{background:#2a0060;color:#fff;padding:1px 8px;font-size:12px;flex-shrink:0}
+
+/* ════════════════════════
+   AUTODESK ANIMATOR
+════════════════════════ */
+#anim-root{background:#000;color:#fff;outline:none}
+.anim-title{background:#880000;color:#fff;padding:2px 8px;font-weight:bold;flex-shrink:0;text-align:center;font-size:13px}
+.anim-stage{flex:1;display:flex;align-items:center;justify-content:center;background:#0a0a0a;overflow:hidden}
+#anim-frame{color:#00ff41;text-shadow:0 0 8px #00ff41;font-size:13px;line-height:1.5;white-space:pre}
+.anim-label{background:#1a1a1a;color:#ffff00;padding:2px 8px;text-align:center;font-size:12px;flex-shrink:0}
+.anim-tl{background:#111;color:#00ff41;padding:2px 8px;font-size:12px;flex-shrink:0;white-space:pre;overflow:hidden}
+.anim-fns{display:flex;gap:12px;background:#000;color:#aaa;padding:2px 8px;font-size:11px;flex-shrink:0;border-top:1px solid #333}
+</style>
+</head>
+<body>
+<div id="crt">
+  <div id="titlebar">
+    <span>AIC-6 TERMINAL &mdash; ASYNC RESEARCH INSTITUTE</span>
+    <span id="clock"></span>
+  </div>
+  <div id="terminal-body"></div>
+  <div id="input-row">
+    <span id="prompt"></span>&nbsp;<input id="cmd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+
+  <!-- ─── App overlay ─────────────────────────────────────── -->
+  <div id="app-overlay">
+
+    <!-- Norton Commander -->
+    <div id="nc-root" class="app-screen" tabindex="0">
+      <div class="nc-topbar" id="nc-topbar">Left &mdash; Norton Commander 5.51 &mdash; Right</div>
+      <div class="nc-panels">
+        <div id="nc-lpanel" class="nc-panel nc-act">
+          <div class="nc-phdr" id="nc-lpath">C:\</div>
+          <div class="nc-psubhdr">Name                    Size </div>
+          <div class="nc-filelist" id="nc-lfiles"></div>
+        </div>
+        <div style="width:1px;background:#555;flex-shrink:0"></div>
+        <div id="nc-rpanel" class="nc-panel nc-inact">
+          <div class="nc-phdr" id="nc-rpath">C:\AIC</div>
+          <div class="nc-psubhdr">Name                    Size </div>
+          <div class="nc-filelist" id="nc-rfiles"></div>
+        </div>
+      </div>
+      <div class="nc-msg" id="nc-msg">Arrow keys=navigate  Tab=switch panel  Enter=open  F10/ESC=Quit</div>
+      <div class="nc-fnbar">
+        <span class="nc-fn"><span class="nc-fnum">1</span>Help</span>
+        <span class="nc-fn"><span class="nc-fnum">2</span>Menu</span>
+        <span class="nc-fn"><span class="nc-fnum">3</span>View</span>
+        <span class="nc-fn"><span class="nc-fnum">4</span>Edit</span>
+        <span class="nc-fn"><span class="nc-fnum">5</span>Copy</span>
+        <span class="nc-fn"><span class="nc-fnum">6</span>Move</span>
+        <span class="nc-fn"><span class="nc-fnum">7</span>MkDir</span>
+        <span class="nc-fn"><span class="nc-fnum">8</span>Del</span>
+        <span class="nc-fn"><span class="nc-fnum">9</span>PullDn</span>
+        <span class="nc-fn"><span class="nc-fnum">10</span>Quit</span>
+      </div>
+    </div>
+
+    <!-- XTree Gold -->
+    <div id="xt-root" class="app-screen" tabindex="0">
+      <div class="xt-title">&#9552;&#9552;&#9552; XTree Gold v2.5 &#9552;&#9552;&#9552;</div>
+      <div class="xt-body">
+        <div class="xt-tree-pane">
+          <div class="xt-phdr">&#9472;&#9472; DIRECTORY &#9472;&#9472;</div>
+          <div id="xt-tree-list"></div>
+        </div>
+        <div style="color:#003300;padding:0 2px;flex-shrink:0">&#9474;</div>
+        <div class="xt-files-pane">
+          <div class="xt-phdr" id="xt-fhdr">&#9472;&#9472; FILES &#9472;&#9472;</div>
+          <div id="xt-file-list"></div>
+        </div>
+      </div>
+      <div class="xt-stats" id="xt-stats">Disk C:\  Files: 0  Free: 2,146,414,080</div>
+      <div class="xt-fnbar">
+        <span>F1=Help</span><span>F3=List</span><span>F5=Copy</span>
+        <span>F6=Move</span><span>F8=Del</span><span>F10=Quit</span>
+        <span>Tab=Switch</span><span>ESC=Quit</span>
+      </div>
+    </div>
+
+    <!-- Word Processor (shared wrapper for WP/WS/Word) -->
+    <div id="wp-root" class="app-screen">
+      <div id="wp-inner">
+        <div class="wp-title" id="wp-title">WordPerfect 5.1</div>
+        <div class="wp-menu" id="wp-menu"></div>
+        <div class="wp-ruler">&#9500;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9508;</div>
+        <textarea id="wp-ta" placeholder="Start typing your document..."></textarea>
+        <div class="wp-status" id="wp-status"></div>
+        <div class="wp-bottom" id="wp-bottom"></div>
+        <div class="wp-fns" id="wp-fns"></div>
+      </div>
+    </div>
+
+    <!-- Deluxe Paint II Enhanced -->
+    <div id="dp-root" class="app-screen" tabindex="0">
+      <div class="dp-title">&#9619;&#9618;&#9617; Deluxe Paint II Enhanced &mdash; AIC Edition &#9617;&#9618;&#9619; &nbsp; ESC=Quit &nbsp; C=Clear &nbsp; [/]=Tool &nbsp; &lt;/&gt;=Colour &nbsp; Arrows+Space=Draw</div>
+      <div class="dp-workspace">
+        <div class="dp-toolbar" id="dp-toolbar"></div>
+        <div class="dp-canvas-area">
+          <div id="dp-canvas"></div>
+        </div>
+      </div>
+      <div class="dp-statusbar" id="dp-status">Click or use arrow keys to draw on the canvas.</div>
+      <div class="dp-bottombar" id="dp-bottom"></div>
+    </div>
+
+    <!-- Autodesk Animator Pro -->
+    <div id="anim-root" class="app-screen" tabindex="0">
+      <div class="anim-title" id="anim-title">Autodesk Animator Pro &mdash; AIC Edition</div>
+      <div class="anim-stage"><pre id="anim-frame"></pre></div>
+      <div class="anim-label" id="anim-label"></div>
+      <div class="anim-tl" id="anim-tl"></div>
+      <div class="anim-fns">
+        <span>SPACE=Play/Pause</span>
+        <span>&#8592;/&#8594;=Step</span>
+        <span>+/-=Speed</span>
+        <span>Tab=Next demo</span>
+        <span>ESC=Quit</span>
+      </div>
+    </div>
+
+  </div><!-- #app-overlay -->
+</div><!-- #crt -->
+
+<script>
+"use strict";
+// ════════════════════════════════════════════════════════════════
+// VIRTUAL FILESYSTEM
+// ════════════════════════════════════════════════════════════════
+var VFS = {
+  "AUTOEXEC.BAT": {t:"f", c:"@ECHO OFF\nPROMPT $P$G\nPATH C:\\DOS;C:\\AIC\nSET TEMP=C:\\TEMP\n", s:128, d:"05-28-26"},
+  "CONFIG.SYS":   {t:"f", c:"FILES=50\nBUFFERS=20\nDEVICE=C:\\DOS\\HIMEM.SYS\nDOS=HIGH,UMB\n", s:156, d:"05-28-26"},
+  "README.TXT":   {t:"f", c:"ASYNC RESEARCH INSTITUTE - CLASSIFIED NETWORK TERMINAL\n======================================================\nUnauthorized access is prohibited under Protocol 7-BLACKSITE.\nContact: dr.crowley@foundation.int\n", s:312, d:"05-28-26"},
+  "DOS": {t:"d", d:"05-28-26", children:{
+    "COMMAND.COM":{t:"f",c:"",s:54619,d:"05-01-94"}, "HIMEM.SYS":{t:"f",c:"",s:14208,d:"05-01-94"},
+    "EMM386.EXE":{t:"f",c:"",s:110174,d:"05-01-94"}, "FORMAT.COM":{t:"f",c:"",s:22916,d:"05-01-94"},
+    "FDISK.EXE":{t:"f",c:"",s:29336,d:"05-01-94"},   "DEBUG.EXE":{t:"f",c:"",s:20634,d:"05-01-94"},
+    "EDIT.COM":{t:"f",c:"",s:413,d:"05-01-94"},       "QBASIC.EXE":{t:"f",c:"",s:194309,d:"05-01-94"},
+    "CHKDSK.EXE":{t:"f",c:"",s:12241,d:"05-01-94"},   "MEM.EXE":{t:"f",c:"",s:32543,d:"05-01-94"},
+    "XCOPY.EXE":{t:"f",c:"",s:15820,d:"05-01-94"},    "ATTRIB.EXE":{t:"f",c:"",s:11208,d:"05-01-94"},
+    "FIND.EXE":{t:"f",c:"",s:6770,d:"05-01-94"},      "SORT.EXE":{t:"f",c:"",s:6938,d:"05-01-94"},
+    "MORE.COM":{t:"f",c:"",s:2546,d:"05-01-94"},      "DEFRAG.EXE":{t:"f",c:"",s:111422,d:"05-01-94"},
+    "SCANDISK.EXE":{t:"f",c:"",s:119812,d:"05-01-94"},"UNDELETE.EXE":{t:"f",c:"",s:13924,d:"05-01-94"},
+    "DELTREE.EXE":{t:"f",c:"",s:10471,d:"05-01-94"},  "MOVE.EXE":{t:"f",c:"",s:17087,d:"05-01-94"},
+    "TREE.COM":{t:"f",c:"",s:6898,d:"05-01-94"},      "MSAV.EXE":{t:"f",c:"",s:172198,d:"05-01-94"},
+    "VSAFE.COM":{t:"f",c:"",s:62576,d:"05-01-94"},    "SMARTDRV.EXE":{t:"f",c:"",s:45145,d:"05-01-94"},
+    "BACKUP.EXE":{t:"f",c:"",s:36092,d:"05-01-94"},   "RESTORE.EXE":{t:"f",c:"",s:38376,d:"05-01-94"},
+    "LABEL.EXE":{t:"f",c:"",s:9390,d:"05-01-94"},     "DISKCOPY.COM":{t:"f",c:"",s:13798,d:"05-01-94"},
+    "COMP.EXE":{t:"f",c:"",s:14282,d:"05-01-94"},     "FC.EXE":{t:"f",c:"",s:18650,d:"05-01-94"},
+    "DOSSHELL.EXE":{t:"f",c:"",s:235484,d:"05-01-94"},"SHARE.EXE":{t:"f",c:"",s:10912,d:"05-01-94"}
+  }},
+  "AIC": {t:"d", d:"05-28-26", children:{
+    "AIC6.EXE":{t:"f",c:"",s:204800,d:"05-28-26"},  "VMAIL.EXE":{t:"f",c:"",s:98304,d:"05-28-26"},
+    "DOCDB.EXE":{t:"f",c:"",s:131072,d:"05-28-26"}, "REDACT.EXE":{t:"f",c:"",s:45056,d:"05-28-26"},
+    "TASKMAN.EXE":{t:"f",c:"",s:57344,d:"05-28-26"},"NOTEPAD.EXE":{t:"f",c:"",s:40960,d:"05-28-26"},
+    "NC.EXE":{t:"f",c:"",s:131072,d:"05-28-26"},    "XTREE.EXE":{t:"f",c:"",s:98304,d:"05-28-26"},
+    "WP.EXE":{t:"f",c:"",s:163840,d:"05-28-26"},    "WS.EXE":{t:"f",c:"",s:102400,d:"05-28-26"},
+    "WORD.EXE":{t:"f",c:"",s:204800,d:"05-28-26"},  "DPAINT.EXE":{t:"f",c:"",s:163840,d:"05-28-26"},
+    "ANIM.EXE":{t:"f",c:"",s:122880,d:"05-28-26"},
+    "README.TXT":{t:"f",c:"AIC-6 PROGRAM SUITE\nNC=Norton Commander  XTREE=XTree Gold\nWP=WordPerfect 5.1  WS=WordStar 7.0  WORD=Microsoft Word 5.5\nDPAINT=Deluxe Paint II Enhanced  ANIM=Autodesk Animator Pro\n",s:256,d:"05-28-26"}
+  }},
+  "LOGS": {t:"d", d:"05-28-26", children:{
+    "SYSTEM.LOG":{t:"f",c:"[2621-05-27 09:14:32] SYSTEM BOOT\n[2621-05-27 09:15:01] User O5_13 logged in\n[2621-05-27 16:28:09] Session ended\n",s:120,d:"05-28-26"},
+    "ACCESS.LOG":{t:"f",c:"[2621-05-27] TERMINAL-7 :: O5_13 :: LOGIN :: SUCCESS\n",s:60,d:"05-28-26"}
+  }},
+  "TEMP":  {t:"d", d:"05-28-26", children:{}},
+  "USERS": {t:"d", d:"05-28-26", children:{
+    "MORAN.USR":{t:"f",c:"USER: connor.moran\nDISPLAY: O5_13\nCLEARANCE: LEVEL-5\n",s:60,d:"05-28-26"}
+  }}
+};
+
+function vfsNode(path) {
+  var p = path.replace(/\//g,"\\").toUpperCase().replace(/\\+$/,"");
+  if (p === "C:" || p === "C:\\") return {t:"d", children:VFS};
+  var rel = p.replace(/^C:\\/,"").replace(/^C:/,"");
+  var parts = rel.split("\\").filter(function(s){return s.length>0;});
+  var node = {t:"d", children:VFS};
+  for (var i=0; i<parts.length; i++) {
+    if (node.t !== "d" || !node.children) return null;
+    node = node.children[parts[i]];
+    if (!node) return null;
+  }
+  return node;
+}
+function vfsEntries(path) {
+  var n = vfsNode(path);
+  if (!n || n.t !== "d") return [];
+  return Object.keys(n.children||{}).map(function(k){return {name:k, node:n.children[k]};});
+}
+function vfsResolve(cwd, rel) {
+  var u = rel.toUpperCase();
+  if (u === "..") {
+    var parts = cwd.replace(/\\+$/,"").split("\\").filter(function(s){return s.length>0;});
+    if (parts.length <= 1) return "C:\\";
+    parts.pop();
+    return parts.length === 1 ? "C:\\" : parts.join("\\");
+  }
+  if (u.indexOf("C:\\") === 0) return u;
+  if (u === "." || u === "") return cwd;
+  return cwd.replace(/\\+$/,"") + "\\" + u;
+}
+
+// ════════════════════════════════════════════════════════════════
+// AIC STATE
+// ════════════════════════════════════════════════════════════════
+var DOCS = {
+  "MISSION STATEMENT": {title:"MISSION STATEMENT", body:"MANKIND IN ITS PRESENT STATE HAS BEEN AROUND FOR A QUARTER OF A MILLION\nYEARS, YET ONLY A SMALL FRACTION OF THAT HAS BEEN OF ANY SIGNIFICANCE.\nWE SECURE. WE CONTAIN. WE PROTECT.\n\n-- ASYNC RESEARCH INSTITUTE"},
+  "PROTOCOL-7": {title:"PROTOCOL-7 -- BLACKSITE COMMUNICATIONS", body:"All communications on this terminal are logged and monitored.\nUnauthorized disclosure of operational data is a Class-A infraction.\nContact: security@async.foundation.int"},
+  "PERSONNEL-O5_13": {title:"PERSONNEL FILE -- O5_13", body:"Display Name: USER\nReal Name: Connor Moran\nClearance: Level 5 -- Oversight Council\nDepartment: O5 Command\nEmail: dr.crowley@foundation.int\nStatus: ACTIVE"},
+  "BACKROOMS-OVERVIEW": {title:"PROJECT BACKROOMS -- OPERATIONAL OVERVIEW", body:"Classification: TOP SECRET // EYES ONLY\nThe Backrooms represent a non-Euclidean anomalous space.\nCurrent strategy: MONITORING ONLY.\nKnown levels catalogued: 1,247\nPersonnel lost: [REDACTED]"},
+  "BACKROOMS-LEVEL-0": {title:"BACKROOMS LEVEL 0 -- THE LOBBY", body:"Designation: Level 0  Hazard Rating: LOW\nDescription: Endless yellow carpet, mono-yellow wallpaper, fluorescent lighting.\nEntities: None confirmed.\nNotes: Persistent buzzing of fluorescent lights."},
+  "BACKROOMS-LEVEL-1": {title:"BACKROOMS LEVEL 1 -- HABITABLE ZONE", body:"Designation: Level 1  Hazard Rating: MODERATE\nDescription: Industrial warehouse. Concrete floors, metal shelving.\nEntities: Smilers, Facelings\nResources: Almond Water, canned goods"},
+  "ENTITY-SMILER": {title:"ENTITY REPORT -- SMILER", body:"Entity Class: HOSTILE\nDescription: Manifests as two glowing eyes in darkness.\nBehavior: Approaches slowly. Retreats from direct light.\nThreat Level: HIGH in low-light conditions.\nRecommendation: Carry sufficient lighting at all times."},
+  "INCIDENT-2621-004": {title:"INCIDENT REPORT 2621-004", body:"Date: 2621-04-17  Reporting Officer: O5_13\nIncident: Unauthorized noclip event, Research Wing C.\nSubjects: 2 personnel, 1 recovered, 1 MIA.\nStatus: ONGOING INVESTIGATION\nDetails: [REDACTED PENDING REVIEW]"}
+};
+var STATE = {
+  tasks: [
+    {id:1, desc:"Review Backrooms Level 0 monitoring footage", status:"OPEN"},
+    {id:2, desc:"File incident report 2621-004 supplemental", status:"IN PROGRESS"},
+    {id:3, desc:"Update entity database - Smiler behavioral data", status:"OPEN"}
+  ],
+  notes: ["Check incident report 2621-004 follow-up.", "Review Level 0 monitoring data."],
+  flags: {"ALERT_LEVEL":"GREEN", "BLACKSITE":"ACTIVE", "OFFLINE_MODE":"TRUE"},
+  alerts: [{t:"08:00:00", m:"Daily system check initiated."}],
+  sims: [],
+  checks: [
+    {id:1, item:"Verify all personnel accounted for", done:true},
+    {id:2, item:"Morning status report to O5 Council", done:false},
+    {id:3, item:"Level 1 entity sweep (automated)", done:false}
+  ],
+  qrefs: {"SECURITY":"security@async.foundation.int"},
+  tags: {"PRIORITY":["BACKROOMS-LEVEL-0","INCIDENT-2621-004"], "REVIEW":["ENTITY-SMILER"]},
+  cmdCount: 0, cmdHist: [], sessionStart: Date.now(),
+  vmail: {
+    owner:"dr.crowley@foundation.int",
+    msgs:[
+      {id:1, from:"O5_13@o5.foundation.int", to:"dr.crowley@foundation.int",
+       subj:"PRIORITY -- Incident 2621-004 Status", folder:"INBOX", ts:"2621-05-27 09:15",
+       body:"Dr. Crowley,\n\nPlease provide an updated status on Incident 2621-004.\nThe Council requires a full briefing by end of day.\n\nO5_13"},
+      {id:2, from:"research-ops@foundation.int", to:"dr.crowley@foundation.int",
+       subj:"Level 0 Monitoring -- Weekly Summary", folder:"INBOX", ts:"2621-05-27 06:00",
+       body:"Level 0 readings: NOMINAL\nEntity sightings: 0\nPersonnel ingress events: 0 confirmed\nAlmond Water reserves: 74%"},
+      {id:3, from:"dr.crowley@foundation.int", to:"O5_13@o5.foundation.int",
+       subj:"RE: Incident 2621-004", folder:"SENT", ts:"2621-05-27 14:03",
+       body:"O5_13,\n\nInvestigation ongoing. One subject recovered and debriefed.\nSecond subject remains missing.\n\nDr. Crowley"}
+    ], nextId:4
+  }
+};
+
+// ════════════════════════════════════════════════════════════════
+// TERMINAL ENGINE
+// ════════════════════════════════════════════════════════════════
+var termBody   = document.getElementById("terminal-body");
+var inputRow   = document.getElementById("input-row");
+var promptEl   = document.getElementById("prompt");
+var cmdInput   = document.getElementById("cmd-input");
+var appOverlay = document.getElementById("app-overlay");
+
+var shellPhase = "boot"; // boot | login-user | login-pass | shell
+var shellCwd   = "C:\\";
+var cmdHistory = [], histIdx = -1;
+
+function timeStr() {
+  return new Date().toLocaleTimeString("en-US", {hour12:false});
+}
+function addLine(text, cls) {
+  var d = document.createElement("div");
+  d.textContent = (text === "" || text == null) ? "\u00A0" : text;
+  if (cls) d.className = cls;
+  termBody.appendChild(d);
+  termBody.scrollTop = termBody.scrollHeight;
+}
+function setPrompt(p)  { promptEl.textContent = p; }
+function showInput()   { inputRow.style.display = "flex"; }
+function hideInput()   { inputRow.style.display = "none"; }
+function setPassMode() { cmdInput.type = "password"; }
+function setTextMode() { cmdInput.type = "text"; }
+function focusInput()  { setTimeout(function(){ cmdInput.focus(); }, 30); }
+
+// Clock
+(function clockTick(){
+  document.getElementById("clock").textContent = new Date().toLocaleString("en-US",{hour12:false});
+  setTimeout(clockTick, 1000);
+})();
+
+// ════════════════════════════════════════════════════════════════
+// BOOT SEQUENCE
+// ════════════════════════════════════════════════════════════════
+var BOOT = [
+  [0,    "Award Modular BIOS v4.51PG, An Energy Star Ally"],
+  [80,   "Copyright (C) 1984-94, Award Software, Inc."],
+  [140,  ""],
+  [180,  "AIC Secure Boot Firmware v2.6 -- BIOS-LEVEL ENCRYPTED"],
+  [220,  ""],
+  [270,  "CPU: Intel 486DX2-66 MHz"],
+  [350,  "Memory Test: 32768K OK"],
+  [420,  ""],
+  [470,  "Detecting IDE Primary Master  ...  ST3160812AS (160GB)"],
+  [550,  "Detecting IDE Primary Slave   ...  None"],
+  [620,  "Detecting IDE Secondary Master...  None"],
+  [680,  "Detecting IDE Secondary Slave ...  None"],
+  [740,  ""],
+  [800,  "AIC Secure Partition Table     [ENCRYPTED]"],
+  [880,  "Loading MS-DOS 6.22..."],
+  [960,  ""],
+  [1000, "Microsoft(R) MS-DOS(R) Version 6.22"],
+  [1060, "             (C)Copyright Microsoft Corp 1981-1994."],
+  [1100, ""],
+  [1150, "AIC-6 Overlay Build 2621.05.28 -- Loading..."],
+  [1250, "  [####################]  AIC Core Modules"],
+  [1370, "  [####################]  V-Mail Subsystem"],
+  [1490, "  [####################]  Document Database"],
+  [1610, "  [####################]  Task Manager"],
+  [1730, "  [####################]  Security Layer"],
+  [1840, ""],
+  [1900, "AIC Secure Terminal Ready."],
+  [1960, ""]
+];
+
+(function runBoot(){
+  BOOT.forEach(function(item){
+    setTimeout(function(){ addLine(item[1]); }, item[0]);
+  });
+  setTimeout(function(){
+    shellPhase = "login-user";
+    addLine("");
+    addLine("╔══════════════════════════════════════════════════════════╗", "bright");
+    addLine("║       ASYNC RESEARCH INSTITUTE -- AIC-6 TERMINAL         ║", "bright");
+    addLine("║         UNAUTHORIZED ACCESS IS A CLASS-A INFRACTION      ║", "bright");
+    addLine("╚══════════════════════════════════════════════════════════╝", "bright");
+    addLine("");
+    addLine("WELCOME_NEW_USER");
+    addLine("");
+    addLine("PLEASE_ENTER_USERNAME:");
+    addLine("");
+    setPrompt("USERNAME>");
+    showInput();
+    focusInput();
+  }, 2300);
+})();
+
+// Click anywhere to focus input
+document.addEventListener("click", function(){
+  if (!appOverlay.classList.contains("on")) focusInput();
+});
+
+// ════════════════════════════════════════════════════════════════
+// INPUT HANDLING
+// ════════════════════════════════════════════════════════════════
+cmdInput.addEventListener("keydown", function(e){
+  if (e.key === "Enter") {
+    e.preventDefault();
+    var val = cmdInput.value;
+    cmdInput.value = "";
+    histIdx = -1;
+    handleInput(val);
+    return;
+  }
+  if (e.key === "Escape") { cmdInput.value = ""; return; }
+  if (shellPhase !== "shell") return;
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    var ni = Math.min(histIdx + 1, cmdHistory.length - 1);
+    if (ni >= 0 && cmdHistory[ni] !== undefined) { histIdx = ni; cmdInput.value = cmdHistory[ni]; }
+    return;
+  }
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    histIdx = Math.max(histIdx - 1, -1);
+    cmdInput.value = histIdx >= 0 ? (cmdHistory[histIdx] || "") : "";
+    return;
+  }
+  if (e.key === "Tab") {
+    e.preventDefault();
+    var CMDS = [
+      "DIR","CD","CLS","VER","TYPE","COPY","DEL","ERASE","MEM","CHKDSK","ATTRIB","FIND","SORT","MORE",
+      "FORMAT","DEBUG","EDIT","TREE","XCOPY","SCANDISK","DEFRAG","DATE","TIME","ECHO","HELP","SET","PATH",
+      "LABEL","BACKUP","RESTORE","MSAV","VSAFE","SMARTDRV","UNDELETE","DELTREE","MOVE","DISKCOPY","SHARE",
+      "AIC","VMAIL","DOCDB","TASKMAN","TASK","NOTES","NOTE","FLAGS","FLAG","ALERTS","ALERT","SIM",
+      "CHECKLIST","CHECK","REDACT","IDE","DIAG","UPTIME","QREF","TAGS","TAG",
+      "NC","XTREE","WP","WS","WORD","DPAINT","ANIM"
+    ];
+    var up = cmdInput.value.toUpperCase();
+    for (var i=0; i<CMDS.length; i++) {
+      if (CMDS[i].indexOf(up) === 0 && CMDS[i] !== up) { cmdInput.value = CMDS[i]; break; }
+    }
+    return;
+  }
+});
+
+function handleInput(raw) {
+  var val = raw.trim();
+
+  // ── Login ──
+  if (shellPhase === "login-user") {
+    addLine("USERNAME>" + val, "echo");
+    if (val.toLowerCase() === "connor.moran") {
+      addLine("USERNAME_CORRECT");
+      addLine("");
+      addLine("PLEASE_ENTER_PASSWORD:");
+      addLine("");
+      shellPhase = "login-pass";
+      setPrompt("PASSWORD>");
+      setPassMode();
+    } else {
+      addLine("USERNAME_INCORRECT", "err");
+      addLine("");
+      addLine("PLEASE_ENTER_USERNAME:");
+      addLine("");
+    }
+    return;
+  }
+
+  if (shellPhase === "login-pass") {
+    var stars = val.replace(/./g,"*");
+    addLine("PASSWORD>" + stars, "echo");
+    if (val === "helicarrier") {
+      addLine("PASSWORD_CORRECT");
+      addLine("");
+      addLine("ACCESS GRANTED -- Welcome, O5_13", "bright");
+      addLine("");
+      addLine("C:\\>");
+      shellPhase = "shell";
+      setTextMode();
+      setPrompt("C:\\>");
+    } else {
+      addLine("PASSWORD_INCORRECT", "err");
+      addLine("");
+      addLine("PLEASE_ENTER_USERNAME:");
+      addLine("");
+      shellPhase = "login-user";
+      setTextMode();
+      setPrompt("USERNAME>");
+    }
+    return;
+  }
+
+  // ── Shell ──
+  if (!val) { addLine(shellCwd + ">"); return; }
+
+  addLine(shellCwd + ">" + val, "echo");
+  cmdHistory.unshift(val);
+  // deduplicate
+  var seen = {}; cmdHistory = cmdHistory.filter(function(v){ if(seen[v]) return false; seen[v]=true; return true; }).slice(0,50);
+
+  var parts = val.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+  if (!parts.length) return;
+  var cmd  = parts[0].toUpperCase().replace(/\.(COM|EXE|BAT)$/i,"");
+  var args = parts.slice(1).map(function(a){ return a.replace(/^"|"$/g,""); });
+
+  STATE.cmdCount++;
+  STATE.cmdHist.push(cmd);
+  if (STATE.cmdHist.length > 10) STATE.cmdHist.shift();
+  setPrompt(shellCwd + ">");
+
+  runCmd(cmd, args);
+}
+
+// ════════════════════════════════════════════════════════════════
+// COMMAND DISPATCH
+// ════════════════════════════════════════════════════════════════
+function runCmd(cmd, args) {
+  switch (cmd) {
+    // ── Built-in DOS ──────────────────────────────────────────
+    case "CLS": case "CLEAR": termBody.innerHTML = ""; return;
+    case "VER":
+      addLine(""); addLine("MS-DOS Version 6.22  (AIC-6 Build 2621.05.28)", "bright");
+      addLine("Async Research Institute -- Classified Terminal Network"); addLine(""); return;
+    case "DIR": cmdDir(args); return;
+    case "CD": case "CHDIR": cmdCd(args); return;
+    case "TYPE": cmdType(args); return;
+    case "ECHO": addLine(args.length ? args.join(" ") : "ECHO is on."); return;
+    case "DATE":
+      addLine(""); addLine("Current date is " + new Date().toLocaleDateString("en-US",{weekday:"short",year:"numeric",month:"2-digit",day:"2-digit"})); addLine(""); return;
+    case "TIME":
+      addLine(""); addLine("Current time is " + timeStr()); addLine(""); return;
+    case "PATH": addLine("PATH=C:\\DOS;C:\\AIC"); return;
+    case "SET":
+      addLine("COMSPEC=C:\\DOS\\COMMAND.COM"); addLine("PATH=C:\\DOS;C:\\AIC");
+      addLine("PROMPT=$P$G"); addLine("TEMP=C:\\TEMP"); addLine("USER=O5_13"); addLine("CLEARANCE=LEVEL-5"); return;
+    case "COPY":
+      if (args.length < 2) { addLine("Required parameter missing", "err"); return; }
+      addLine("        1 file(s) copied"); return;
+    case "DEL": case "ERASE": addLine((args[0]||"?") + " - Access denied. Secure mode active.", "err"); return;
+    case "FORMAT": addLine(""); addLine("WARNING: Format cancelled. Secure mode active.", "amb"); addLine(""); return;
+    case "FDISK": addLine("FDISK: Access denied -- classified partition table protected.", "err"); return;
+    case "DEBUG": addLine(""); addLine("DEBUG active. Type ? for help, Q to quit.", "dim"); addLine("-"); addLine(""); return;
+    case "EDIT": addLine("Use WP, WS, or WORD for secure document editing.", "dim"); return;
+    case "MEM":
+      addLine(""); addLine("Memory Type        Total       Used       Free", "bright");
+      addLine("---------------------------------------------", "dim");
+      addLine("Conventional       640K        218K       422K");
+      addLine("Upper               96K         36K        60K");
+      addLine("Extended (XMS)  31,744K      2,048K    29,696K");
+      addLine("---------------------------------------------", "dim");
+      addLine("Total memory    32,768K      2,686K    30,082K"); addLine(""); return;
+    case "CHKDSK":
+      addLine(""); addLine(" 2,147,483,648 bytes total disk space");
+      addLine("     1,024,512 bytes in user files");
+      addLine(" 2,146,414,080 bytes available on disk"); addLine("");
+      addLine("       655,360 total bytes memory"); addLine("       432,384 bytes free"); addLine(""); return;
+    case "ATTRIB":
+      addLine(""); addLine("  A  SHR  C:\\AUTOEXEC.BAT"); addLine("  A  SHR  C:\\CONFIG.SYS");
+      addLine("     SHR  C:\\DOS\\COMMAND.COM"); addLine("  A       C:\\README.TXT"); addLine(""); return;
+    case "TREE":
+      addLine(""); addLine("Directory PATH listing for Volume AIC-SECURE", "bright");
+      addLine("C:\\"); addLine("|-- DOS"); addLine("|-- AIC"); addLine("|-- LOGS"); addLine("|-- USERS"); addLine("+-- TEMP"); addLine(""); return;
+    case "SCANDISK": addLine(""); addLine("Scanning drive C: ...", "dim"); addLine("No errors detected.", "bright"); addLine(""); return;
+    case "DEFRAG": addLine(""); addLine("Drive C: is 0% fragmented.", "bright"); addLine(""); return;
+    case "MSAV":
+      addLine(""); addLine("Microsoft Anti-Virus -- AIC Secure Build", "bright");
+      addLine("Files Scanned: 47  Infected: 0"); addLine("No viruses found.", "bright"); addLine(""); return;
+    case "VSAFE": addLine("VSAFE: Not loaded in secure mode.", "amb"); return;
+    case "SMARTDRV": addLine("SMARTDrive: Cache active. 2,048K allocated.", "dim"); return;
+    case "UNDELETE": addLine("UNDELETE: Secure delete mode -- recovery unavailable.", "err"); return;
+    case "DELTREE": addLine("DELTREE: Access denied -- secure mode active.", "err"); return;
+    case "XCOPY": addLine("XCOPY: Cross-copy restricted to authorized volumes.", "amb"); return;
+    case "DISKCOPY": addLine("DISKCOPY: No secondary drive available.", "dim"); return;
+    case "BACKUP": addLine("BACKUP: Last backup: 2621-05-27 23:00", "dim"); return;
+    case "RESTORE": addLine("RESTORE: Requires authorization code.", "amb"); return;
+    case "LABEL": addLine("Secure volume cannot be relabeled.", "amb"); return;
+    case "COMP": case "FC": addLine("File comparison restricted in secure mode.", "amb"); return;
+    case "SHARE": addLine("SHARE: Not available in offline mode.", "dim"); return;
+    case "DOSSHELL": addLine("DOSSHELL: Unavailable in secure terminal mode.", "amb"); return;
+    case "QBASIC": addLine("QBasic: Use IDE command for programming.", "amb"); return;
+    case "SUBST": addLine("No substituted drives."); return;
+    case "PAUSE": addLine("Strike a key when ready . . ."); addLine(""); return;
+    case "REM": case "PROMPT": return;
+    case "SORT": addLine("Pipe output via SORT: e.g. DIR | SORT"); return;
+    case "MORE": addLine("Pipe output via MORE: e.g. TYPE README.TXT | MORE"); return;
+    case "FIND": addLine("FIND: Use DOCDB for document search in secure mode.", "amb"); return;
+    case "MOVE":
+      if (args.length < 2) { addLine("Required parameter missing", "err"); return; }
+      addLine(args[0] + " => " + args[1]); return;
+    // ── AIC Programs ──────────────────────────────────────────
+    case "AIC": case "AIC6": cmdAic(); return;
+    case "VMAIL": cmdVmail(args); return;
+    case "DOCDB": case "DOCS": cmdDocdb(args); return;
+    case "TASKMAN": case "TASKS": case "TASK": cmdTask(args); return;
+    case "NOTES": case "NOTE": cmdNote(args); return;
+    case "FLAGS": case "FLAG": cmdFlag(args); return;
+    case "ALERTS": case "ALERT": cmdAlert(args); return;
+    case "SIM": case "SIMULATE": cmdSim(args); return;
+    case "CHECKLIST": case "CHECKLIS": case "CHECK": cmdCheck(args); return;
+    case "REDACT": cmdRedact(args); return;
+    case "IDE": cmdIde(args); return;
+    case "DIAG": cmdDiag(); return;
+    case "UPTIME": cmdUptime(); return;
+    case "QREF": case "QUICKREF": cmdQref(args); return;
+    case "TAGS": case "TAG": cmdTag(args); return;
+    // ── Legacy Apps ───────────────────────────────────────────
+    case "NC": case "NORTON": case "NORTONC":
+      addLine("Loading Norton Commander 5.51...", "dim");
+      setTimeout(function(){ launchNC(); }, 400); return;
+    case "XTREE": case "XTREEGOLD": case "XTG":
+      addLine("Loading XTree Gold v2.5...", "dim");
+      setTimeout(function(){ launchXT(); }, 400); return;
+    case "WP": case "WORDPERFECT": case "WORDPERF":
+      addLine("Loading WordPerfect 5.1...", "dim");
+      setTimeout(function(){ launchWP("wp"); }, 400); return;
+    case "WS": case "WORDSTAR":
+      addLine("Loading WordStar 7.0...", "dim");
+      setTimeout(function(){ launchWP("ws"); }, 400); return;
+    case "WORD": case "MSWORD": case "WORD55":
+      addLine("Loading Microsoft Word 5.5...", "dim");
+      setTimeout(function(){ launchWP("word"); }, 400); return;
+    case "DPAINT": case "DELUXE": case "DPII":
+      addLine("Loading Deluxe Paint II Enhanced...", "dim");
+      setTimeout(function(){ launchDP(); }, 400); return;
+    case "ANIM": case "ANIMATOR": case "AANIM":
+      addLine("Loading Autodesk Animator Pro...", "dim");
+      setTimeout(function(){ launchAnim(); }, 400); return;
+    case "HELP": case "/?": cmdHelp(); return;
+    default:
+      addLine("Bad command or file name: " + (args[-1] || cmd), "err");
+      addLine("Type HELP for a list of commands.", "dim");
+      addLine(""); return;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// DOS COMMAND IMPLEMENTATIONS
+// ════════════════════════════════════════════════════════════════
+function cmdDir(args) {
+  var target = args.length && args[0] ? vfsResolve(shellCwd, args[0]) : shellCwd;
+  var node = vfsNode(target);
+  if (!node || node.t !== "d") { addLine("File not found - " + (args[0]||""), "err"); return; }
+  var entries = vfsEntries(target);
+  var dirs  = entries.filter(function(e){ return e.node.t === "d"; });
+  var files = entries.filter(function(e){ return e.node.t === "f"; });
+  addLine(""); addLine(" Volume in drive C is AIC-SECURE", "dim");
+  addLine(" Directory of " + target, "bright"); addLine("");
+  dirs.forEach(function(e){ addLine(" " + (e.node.d||"05-28-26") + "  <DIR>          " + e.name, "dim"); });
+  files.forEach(function(e){ addLine(" " + (e.node.d||"05-28-26") + " " + String(e.node.s||0).padStart(10) + " " + e.name); });
+  var totalBytes = files.reduce(function(s,e){ return s + (e.node.s||0); }, 0);
+  addLine("        " + files.length + " file(s)     " + totalBytes.toLocaleString() + " bytes", "dim");
+  addLine("        " + dirs.length  + " dir(s)   2,147,483,648 bytes free", "dim"); addLine("");
+}
+function cmdCd(args) {
+  if (!args.length || !args[0]) { addLine(shellCwd, "bright"); return; }
+  var target = vfsResolve(shellCwd, args[0]);
+  var node = vfsNode(target);
+  if (!node || node.t !== "d") { addLine("Invalid directory - " + args[0], "err"); return; }
+  shellCwd = target;
+  setPrompt(shellCwd + ">");
+}
+function cmdType(args) {
+  if (!args.length || !args[0]) { addLine("Required parameter missing", "err"); return; }
+  var target = vfsResolve(shellCwd, args[0]);
+  var node = vfsNode(target);
+  if (!node || node.t !== "f") { addLine("File not found - " + args[0], "err"); return; }
+  addLine("");
+  node.c.split("\n").forEach(function(l){ addLine(l); });
+  addLine("");
+}
+
+// ════════════════════════════════════════════════════════════════
+// AIC COMMAND IMPLEMENTATIONS
+// ════════════════════════════════════════════════════════════════
+function cmdAic() {
+  addLine(""); addLine("╔══════════════════════════════════════════════════════════╗", "bright");
+  addLine("║       ASYNC RESEARCH INSTITUTE -- AIC-6 CONSOLE          ║", "bright");
+  addLine("╚══════════════════════════════════════════════════════════╝", "bright"); addLine("");
+  addLine(" +-- PROGRAM SUITE -------------------------------------------+", "dim");
+  addLine(" |  NC       -- Norton Commander (file manager)               |", "dim");
+  addLine(" |  XTREE    -- XTree Gold (tree file manager)                |", "dim");
+  addLine(" |  WP       -- WordPerfect 5.1                               |", "dim");
+  addLine(" |  WS       -- WordStar 7.0                                  |", "dim");
+  addLine(" |  WORD     -- Microsoft Word 5.5                            |", "dim");
+  addLine(" |  DPAINT   -- Deluxe Paint II Enhanced                      |", "dim");
+  addLine(" |  ANIM     -- Autodesk Animator Pro                         |", "dim");
+  addLine(" |  VMAIL    -- V-Mail client                                 |", "dim");
+  addLine(" |  DOCDB    -- Document database                             |", "dim");
+  addLine(" |  TASK     -- Task manager                                  |", "dim");
+  addLine(" |  NOTE     -- Secure notes                                  |", "dim");
+  addLine(" |  FLAG     -- System flags                                  |", "dim");
+  addLine(" |  ALERT    -- Alert system                                  |", "dim");
+  addLine(" |  SIM      -- Simulation log                                |", "dim");
+  addLine(" |  CHECK    -- Checklist manager                             |", "dim");
+  addLine(" |  REDACT   -- Text redactor                                 |", "dim");
+  addLine(" |  IDE      -- Integrated IDE                                |", "dim");
+  addLine(" |  DIAG     -- System diagnostics                            |", "dim");
+  addLine(" +------------------------------------------------------------+", "dim");
+  addLine(""); addLine(" Network Status: OFFLINE (Bridge Unavailable)", "amb"); addLine("");
+}
+function cmdVmail(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (!sub) {
+    var inbox = STATE.vmail.msgs.filter(function(m){ return m.folder === "INBOX"; });
+    addLine(""); addLine("╔═══════════════════════════════════════════╗", "bright");
+    addLine("║   AIC V-MAIL -- dr.crowley@foundation.int  ║", "bright");
+    addLine("╚═══════════════════════════════════════════╝", "bright"); addLine("");
+    addLine(" INBOX: " + inbox.length + " message(s)", inbox.length ? "bright" : "dim"); addLine("");
+    addLine("  INBOX        -- list inbox messages");
+    addLine("  SENT         -- list sent messages");
+    addLine("  READ <id>    -- read a message");
+    addLine("  ARCHIVE <id> -- archive a message");
+    addLine("  DELETE <id>  -- delete a message"); addLine(""); return;
+  }
+  if (sub === "INBOX" || sub === "SENT" || sub === "ARCHIVE") {
+    var msgs = STATE.vmail.msgs.filter(function(m){ return m.folder.toUpperCase() === sub; });
+    addLine(""); addLine("=== " + sub + " ===", "bright"); addLine("");
+    if (!msgs.length) addLine("  No messages.", "dim");
+    else msgs.forEach(function(m){
+      addLine("  [" + String(m.id).padStart(3,"0") + "] " + m.ts + "  FROM: " + m.from);
+      addLine("        SUBJ: " + m.subj); addLine("");
+    }); return;
+  }
+  if (sub === "READ") {
+    var id = parseInt(args[1]||"0");
+    var msg = null;
+    STATE.vmail.msgs.forEach(function(m){ if(m.id===id) msg=m; });
+    if (!msg) { addLine("No such message: " + id, "err"); return; }
+    addLine(""); addLine("=== MESSAGE " + String(id).padStart(3,"0") + " ===", "bright");
+    addLine("From:    " + msg.from); addLine("To:      " + msg.to);
+    addLine("Subject: " + msg.subj); addLine("Date:    " + msg.ts);
+    addLine("------------------------------------------------", "dim"); addLine("");
+    msg.body.split("\n").forEach(function(l){ addLine(l); }); addLine(""); return;
+  }
+  if (sub === "ARCHIVE" && args[1]) {
+    var id = parseInt(args[1]);
+    var found = false;
+    STATE.vmail.msgs.forEach(function(m){ if(m.id===id){m.folder="ARCHIVE";found=true;} });
+    addLine(found ? "Archived." : "No such message: " + id, found ? "bright" : "err"); return;
+  }
+  if (sub === "DELETE") {
+    var id = parseInt(args[1]||"0");
+    var idx = -1;
+    STATE.vmail.msgs.forEach(function(m,i){ if(m.id===id) idx=i; });
+    if (idx === -1) { addLine("No such message: " + id, "err"); return; }
+    STATE.vmail.msgs.splice(idx,1); addLine("Deleted.", "bright"); return;
+  }
+  addLine("Unknown VMAIL sub-command. Type VMAIL for help.", "err");
+}
+function cmdDocdb(args) {
+  var sub = (args[0]||"LIST").toUpperCase();
+  if (sub === "LIST") {
+    addLine(""); addLine("=== DOCUMENT DATABASE ===", "bright"); addLine("");
+    Object.keys(DOCS).forEach(function(k){ addLine("  " + k); });
+    addLine(""); addLine("Usage: DOCDB VIEW <id>", "dim"); addLine(""); return;
+  }
+  if (sub === "VIEW") {
+    var id = args.slice(1).join(" ").toUpperCase();
+    var doc = DOCS[id];
+    if (!doc) { addLine("Document not found: " + id, "err"); return; }
+    addLine(""); addLine("=== " + doc.title + " ===", "bright");
+    addLine("--------------------------------------------------", "dim"); addLine("");
+    doc.body.split("\n").forEach(function(l){ addLine(l); }); addLine(""); return;
+  }
+  addLine("Usage: DOCDB LIST  or  DOCDB VIEW <id>", "err");
+}
+function cmdTask(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var desc = args.slice(1).join(" ");
+    if (!desc) { addLine("Usage: TASK ADD <description>", "err"); return; }
+    var id = STATE.tasks.length ? STATE.tasks[STATE.tasks.length-1].id + 1 : 1;
+    STATE.tasks.push({id:id, desc:desc, status:"OPEN"});
+    addLine("Task " + String(id).padStart(3,"0") + " added.", "bright"); return;
+  }
+  if (sub === "DONE") {
+    var id = parseInt(args[1]||"0");
+    var t = null; STATE.tasks.forEach(function(x){ if(x.id===id) t=x; });
+    if (!t) { addLine("Task not found: " + id, "err"); return; }
+    t.status = "DONE"; addLine("Task " + id + " marked DONE.", "bright"); return;
+  }
+  if (sub === "STATUS" && args[1] && args[2]) {
+    var id = parseInt(args[1]);
+    var ns = args.slice(2).join(" ").toUpperCase();
+    var t = null; STATE.tasks.forEach(function(x){ if(x.id===id) t=x; });
+    if (!t) { addLine("Task not found: " + id, "err"); return; }
+    t.status = ns; addLine("Task " + id + " updated.", "bright"); return;
+  }
+  addLine(""); addLine("=== TASK MANAGER ===", "bright"); addLine("");
+  if (!STATE.tasks.length) addLine("  No tasks.", "dim");
+  else STATE.tasks.forEach(function(t){ addLine("  [" + String(t.id).padStart(3,"0") + "] [" + t.status.padEnd(12) + "] " + t.desc); });
+  addLine(""); addLine("Commands: TASK ADD <desc>  TASK DONE <id>  TASK STATUS <id> <s>", "dim"); addLine("");
+}
+function cmdNote(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var text = args.slice(1).join(" ");
+    if (!text) { addLine("Usage: NOTE ADD <text>", "err"); return; }
+    STATE.notes.push(text); addLine("Note " + STATE.notes.length + " saved.", "bright"); return;
+  }
+  if (sub === "DEL") {
+    var id = parseInt(args[1]||"0") - 1;
+    if (id < 0 || id >= STATE.notes.length) { addLine("Note not found.", "err"); return; }
+    STATE.notes.splice(id,1); addLine("Note deleted.", "bright"); return;
+  }
+  addLine(""); addLine("=== SECURE NOTES ===", "bright"); addLine("");
+  if (!STATE.notes.length) addLine("  No notes.", "dim");
+  else STATE.notes.forEach(function(n,i){ addLine("  [" + String(i+1).padStart(3,"0") + "] " + n); });
+  addLine(""); addLine("Commands: NOTE ADD <text>  NOTE DEL <id>", "dim"); addLine("");
+}
+function cmdFlag(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "SET") {
+    var k = (args[1]||"").toUpperCase(); var v = args.slice(2).join(" ");
+    if (!k||!v) { addLine("Usage: FLAG SET <key> <value>", "err"); return; }
+    STATE.flags[k]=v; addLine("Flag " + k + " set to " + v + ".", "bright"); return;
+  }
+  if (sub === "GET") {
+    var k = (args[1]||"").toUpperCase();
+    if (!STATE.flags[k]) { addLine("Flag " + k + " not set.", "err"); return; }
+    addLine(k + " = " + STATE.flags[k]); return;
+  }
+  addLine(""); addLine("=== SYSTEM FLAGS ===", "bright"); addLine("");
+  Object.keys(STATE.flags).forEach(function(k){ addLine("  " + k.padEnd(20) + " = " + STATE.flags[k]); });
+  addLine(""); addLine("Commands: FLAG SET <k> <v>  FLAG GET <k>", "dim"); addLine("");
+}
+function cmdAlert(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var msg = args.slice(1).join(" ");
+    if (!msg) { addLine("Usage: ALERT ADD <message>", "err"); return; }
+    STATE.alerts.push({t:timeStr(), m:msg}); addLine("Alert logged.", "bright"); return;
+  }
+  addLine(""); addLine("=== ALERT SYSTEM ===", "bright"); addLine("");
+  if (!STATE.alerts.length) addLine("  No alerts.", "dim");
+  else STATE.alerts.forEach(function(a,i){ addLine("  [" + String(i+1).padStart(3,"0") + "] " + a.t + " :: " + a.m); });
+  addLine(""); addLine("Commands: ALERT ADD <message>", "dim"); addLine("");
+}
+function cmdSim(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var s = args.slice(1).join(" ");
+    if (!s) { addLine("Usage: SIM ADD <scenario>", "err"); return; }
+    STATE.sims.push(s); addLine("Simulation logged.", "bright"); return;
+  }
+  addLine(""); addLine("=== SIMULATION LOG ===", "bright"); addLine("");
+  if (!STATE.sims.length) addLine("  No simulations.", "dim");
+  else STATE.sims.forEach(function(s,i){ addLine("  [" + String(i+1).padStart(3,"0") + "] " + s); });
+  addLine(""); addLine("Commands: SIM ADD <scenario>", "dim"); addLine("");
+}
+function cmdCheck(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var item = args.slice(1).join(" ");
+    if (!item) { addLine("Usage: CHECK ADD <item>", "err"); return; }
+    var id = STATE.checks.length ? STATE.checks[STATE.checks.length-1].id+1 : 1;
+    STATE.checks.push({id:id, item:item, done:false});
+    addLine("Checklist item " + id + " added.", "bright"); return;
+  }
+  if (sub === "DONE") {
+    var id = parseInt(args[1]||"0");
+    var c = null; STATE.checks.forEach(function(x){ if(x.id===id) c=x; });
+    if (!c) { addLine("Item not found: " + id, "err"); return; }
+    c.done = true; addLine("Item " + id + " marked done.", "bright"); return;
+  }
+  addLine(""); addLine("=== CHECKLIST MANAGER ===", "bright"); addLine("");
+  if (!STATE.checks.length) addLine("  No items.", "dim");
+  else STATE.checks.forEach(function(c){ addLine("  [" + String(c.id).padStart(3,"0") + "] [" + (c.done?"X":" ") + "] " + c.item, c.done?"dim":""); });
+  addLine(""); addLine("Commands: CHECK ADD <item>  CHECK DONE <id>", "dim"); addLine("");
+}
+function cmdRedact(args) {
+  var text = args.join(" ");
+  if (!text) { addLine(""); addLine("=== TEXT REDACTOR ===", "bright"); addLine(""); addLine("  Usage: REDACT <text>"); addLine("  Replaces all alphanumeric chars with [REDACTED]"); addLine(""); return; }
+  var redacted = text.replace(/[a-zA-Z0-9]/g, "\u2588");
+  addLine(""); addLine("=== REDACTED OUTPUT ===", "bright"); addLine("");
+  addLine("  Original : " + text, "dim"); addLine("  Redacted : " + redacted, "amb"); addLine("");
+}
+function cmdIde(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (!sub) {
+    addLine(""); addLine("=== AIC INTEGRATED IDE ===", "bright"); addLine("");
+    addLine("  IDE PYTHON <code>  -- Execute Python (sandboxed)");
+    addLine("  IDE HTML <markup>  -- Render HTML");
+    addLine("  IDE SHELL <cmd>    -- Execute shell (restricted)"); addLine(""); return;
+  }
+  var code = args.slice(1).join(" ");
+  if (sub === "PYTHON") { addLine(""); addLine("=== PYTHON IDE ===", "bright"); addLine(">>> " + code, "dim"); addLine("[Sandboxed execution -- restricted in secure mode]", "amb"); addLine(""); return; }
+  if (sub === "HTML")   { addLine(""); addLine("=== HTML OUTPUT ===", "bright"); addLine(code||"(empty)"); addLine(""); return; }
+  addLine("SHELL: Access restricted.", "err");
+}
+function cmdDiag() {
+  var up = Math.floor((Date.now()-STATE.sessionStart)/1000);
+  var h=Math.floor(up/3600), m=Math.floor((up%3600)/60), s=up%60;
+  addLine(""); addLine("=== SYSTEM DIAGNOSTICS ===", "bright"); addLine("");
+  addLine("  Session Uptime  : " + String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"));
+  addLine("  Commands Issued : " + STATE.cmdCount);
+  addLine("  V-Mail Messages : " + STATE.vmail.msgs.length);
+  addLine("  Tasks Open      : " + STATE.tasks.filter(function(t){return t.status==="OPEN";}).length);
+  addLine("  Notes           : " + STATE.notes.length);
+  addLine("  Alerts Active   : " + STATE.alerts.length);
+  addLine("  Network Status  : OFFLINE", "amb");
+  addLine("  Classification  : TOP SECRET // ASYNC-EYES-ONLY", "amb"); addLine("");
+}
+function cmdUptime() {
+  var up = Math.floor((Date.now()-STATE.sessionStart)/1000);
+  var h=Math.floor(up/3600), m=Math.floor((up%3600)/60), s=up%60;
+  addLine(""); addLine("  Session Start : " + new Date(STATE.sessionStart).toLocaleTimeString());
+  addLine("  Uptime        : " + String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"));
+  addLine("  Commands Run  : " + STATE.cmdCount);
+  addLine("  Last 10 Cmds  : " + (STATE.cmdHist.join(", ")||"none")); addLine("");
+}
+function cmdQref(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var k=(args[1]||"").toUpperCase(), v=args.slice(2).join(" ");
+    if (!k||!v) { addLine("Usage: QREF ADD <key> <value>", "err"); return; }
+    STATE.qrefs[k]=v; addLine("Quick ref " + k + " stored.", "bright"); return;
+  }
+  if (sub === "GET") {
+    var k=(args[1]||"").toUpperCase();
+    if (!STATE.qrefs[k]) { addLine("No quick ref for " + k, "err"); return; }
+    addLine(k + " : " + STATE.qrefs[k]); return;
+  }
+  addLine(""); addLine("=== QUICK REFERENCES ===", "bright"); addLine("");
+  Object.keys(STATE.qrefs).forEach(function(k){ addLine("  " + k.padEnd(20) + " : " + STATE.qrefs[k]); });
+  addLine(""); addLine("Commands: QREF ADD <k> <v>  QREF GET <k>", "dim"); addLine("");
+}
+function cmdTag(args) {
+  var sub = (args[0]||"").toUpperCase();
+  if (sub === "ADD") {
+    var tag=(args[1]||"").toUpperCase(), val=args.slice(2).join(" ");
+    if (!tag||!val) { addLine("Usage: TAG ADD <tag> <value>", "err"); return; }
+    if (!STATE.tags[tag]) STATE.tags[tag]=[];
+    STATE.tags[tag].push(val); addLine("Tag " + tag + " updated.", "bright"); return;
+  }
+  addLine(""); addLine("=== TAG MANAGER ===", "bright"); addLine("");
+  Object.keys(STATE.tags).forEach(function(k){ addLine("  [" + k + "]  ->  " + STATE.tags[k].join(", ")); });
+  addLine(""); addLine("Commands: TAG ADD <tag> <value>", "dim"); addLine("");
+}
+function cmdHelp() {
+  addLine(""); addLine("MS-DOS 6.22 / AIC-6 -- Command Reference", "bright");
+  addLine("--------------------------------------------------", "dim"); addLine("");
+  addLine(" STANDARD DOS:", "bright");
+  addLine("  ATTRIB  BACKUP  CD      CHKDSK  CLS     COMP    COPY");
+  addLine("  DATE    DEBUG   DEL     DEFRAG  DELTREE DIR     DISKCOPY");
+  addLine("  DOSSHELL ECHO  EDIT     ERASE   FC      FDISK   FIND");
+  addLine("  FORMAT  HELP   LABEL    MEM     MORE    MOVE    MSAV");
+  addLine("  PATH    PAUSE  QBASIC   REM     RESTORE SCANDISK SHARE");
+  addLine("  SMARTDRV SORT  SUBST    TIME    TREE    TYPE    UNDELETE");
+  addLine("  VER     VSAFE  XCOPY"); addLine("");
+  addLine(" AIC-6 PROGRAMS:", "bright");
+  addLine("  NC      -- Norton Commander    XTREE  -- XTree Gold");
+  addLine("  WP      -- WordPerfect 5.1     WS     -- WordStar 7.0");
+  addLine("  WORD    -- Microsoft Word 5.5  DPAINT -- Deluxe Paint II");
+  addLine("  ANIM    -- Autodesk Animator Pro"); addLine("");
+  addLine(" AIC-6 UTILITIES:", "bright");
+  addLine("  AIC  VMAIL  DOCDB  TASK  NOTE  FLAG  ALERT  SIM");
+  addLine("  CHECK  REDACT  IDE  DIAG  UPTIME  QREF  TAG"); addLine("");
+}
+
+// ════════════════════════════════════════════════════════════════
+// APP OVERLAY MANAGEMENT
+// ════════════════════════════════════════════════════════════════
+var currentApp = null;
+
+function openOverlay(id) {
+  currentApp = id;
+  appOverlay.classList.add("on");
+  hideInput();
+  var screens = document.querySelectorAll(".app-screen");
+  for (var i=0; i<screens.length; i++) screens[i].classList.remove("on");
+  document.getElementById(id).classList.add("on");
+}
+function closeOverlay(msg) {
+  appOverlay.classList.remove("on");
+  var screens = document.querySelectorAll(".app-screen");
+  for (var i=0; i<screens.length; i++) screens[i].classList.remove("on");
+  currentApp = null;
+  showInput();
+  if (msg) addLine(msg, "dim");
+  addLine("");
+  focusInput();
+}
+
+// ════════════════════════════════════════════════════════════════
+// NORTON COMMANDER
+// ════════════════════════════════════════════════════════════════
+var NC = {
+  lCwd:"C:\\", rCwd:"C:\\AIC", active:"left", lIdx:0, rIdx:0, fileIdx:0
+};
+function ncEntries(path) {
+  var e = vfsEntries(path);
+  var result = [{name:"..", isDir:true, size:0}];
+  e.forEach(function(x){ result.push({name:x.name, isDir:x.node.t==="d", size:x.node.t==="f"?(x.node.s||0):0}); });
+  return result;
+}
+function ncRenderPanel(side) {
+  var isLeft = side === "left";
+  var cwd   = isLeft ? NC.lCwd : NC.rCwd;
+  var idx   = isLeft ? NC.lIdx : NC.rIdx;
+  var isAct = NC.active === side;
+  var panelEl = document.getElementById(isLeft?"nc-lpanel":"nc-rpanel");
+  var pathEl  = document.getElementById(isLeft?"nc-lpath":"nc-rpath");
+  var filesEl = document.getElementById(isLeft?"nc-lfiles":"nc-rfiles");
+  panelEl.className = "nc-panel " + (isAct?"nc-act":"nc-inact");
+  pathEl.textContent = cwd.slice(0,30);
+  filesEl.innerHTML = "";
+  var entries = ncEntries(cwd);
+  var MAX=18;
+  entries.slice(0,MAX).forEach(function(e,i){
+    var d = document.createElement("div");
+    d.className = "nc-row" + (i===idx&&isAct?" nc-sel":"");
+    var label = (e.isDir ? "["+e.name+"]" : e.name).padEnd(22).slice(0,22);
+    var size  = e.isDir ? "   <DIR>" : String(e.size).padStart(8);
+    d.textContent = label + " " + size;
+    filesEl.appendChild(d);
+  });
+}
+function ncRender() { ncRenderPanel("left"); ncRenderPanel("right"); }
+
+function launchNC() {
+  openOverlay("nc-root");
+  ncRender();
+  document.getElementById("nc-root").focus();
+}
+document.getElementById("nc-root").addEventListener("keydown", function(e){
+  e.preventDefault();
+  if (e.key==="F10"||e.key==="Escape"){ closeOverlay("Norton Commander exited."); return; }
+  if (e.key==="Tab"){ NC.active=NC.active==="left"?"right":"left"; ncRender(); return; }
+  var isLeft = NC.active==="left";
+  var cwd    = isLeft ? NC.lCwd : NC.rCwd;
+  var idx    = isLeft ? NC.lIdx : NC.rIdx;
+  var setIdx = function(v){ isLeft?(NC.lIdx=v):(NC.rIdx=v); };
+  var entries= ncEntries(cwd);
+  if (e.key==="ArrowUp")  { setIdx(Math.max(0,idx-1)); ncRender(); return; }
+  if (e.key==="ArrowDown"){ setIdx(Math.min(entries.length-1,idx+1)); ncRender(); return; }
+  if (e.key==="Enter") {
+    var entry=entries[idx];
+    if (!entry) return;
+    if (entry.name==="..") {
+      var par = vfsResolve(cwd,"..");
+      isLeft?(NC.lCwd=par):(NC.rCwd=par); setIdx(0); ncRender();
+    } else if (entry.isDir) {
+      var next = vfsResolve(cwd,entry.name);
+      if (vfsNode(next)) { isLeft?(NC.lCwd=next):(NC.rCwd=next); setIdx(0); ncRender(); }
+    } else {
+      document.getElementById("nc-msg").textContent = "File: " + entry.name + "  " + entry.size.toLocaleString() + " bytes";
+    }
+    return;
+  }
+  var msgs={"F5":"Copy: select destination panel.","F6":"Move/Rename: restricted.","F7":"MkDir: disabled in secure mode.","F8":"Delete: access denied."};
+  if (msgs[e.key]) document.getElementById("nc-msg").textContent=msgs[e.key];
+});
+
+// ════════════════════════════════════════════════════════════════
+// XTREE GOLD
+// ════════════════════════════════════════════════════════════════
+var XT = { treeNodes:[], treeIdx:0, fileIdx:0, focus:"tree" };
+
+function xtBuild() {
+  XT.treeNodes = [{path:"C:\\",name:"C:\\",depth:0}];
+  function add(path,depth) {
+    if (depth>1) return;
+    vfsEntries(path).filter(function(e){return e.node.t==="d";}).forEach(function(e){
+      var cp = (path==="C:\\") ? "C:\\"+e.name : path+"\\"+e.name;
+      XT.treeNodes.push({path:cp, name:e.name, depth:depth});
+      add(cp, depth+1);
+    });
+  }
+  add("C:\\",0);
+}
+function xtRender() {
+  var curPath = (XT.treeNodes[XT.treeIdx]||{path:"C:\\"}).path;
+  var treeEl  = document.getElementById("xt-tree-list");
+  var filesEl = document.getElementById("xt-file-list");
+  treeEl.innerHTML=""; filesEl.innerHTML="";
+  XT.treeNodes.slice(0,24).forEach(function(n,i){
+    var d=document.createElement("div");
+    d.className="xt-row"+(i===XT.treeIdx&&XT.focus==="tree"?" xt-sel":"");
+    d.textContent=("  ".repeat(n.depth))+(n.depth===0?"+-":"  +-")+n.name;
+    treeEl.appendChild(d);
+  });
+  var files = vfsEntries(curPath).filter(function(e){return e.node.t==="f";});
+  document.getElementById("xt-fhdr").textContent="-- FILES: "+curPath+" --";
+  files.slice(0,24).forEach(function(f,i){
+    var d=document.createElement("div");
+    d.className="xt-row"+(i===XT.fileIdx&&XT.focus==="files"?" xt-sel":"");
+    d.textContent=f.name.padEnd(18)+" "+String(f.node.s||0).padStart(8)+"  "+(f.node.d||"");
+    filesEl.appendChild(d);
+  });
+  var totalSz=files.reduce(function(s,f){return s+(f.node.s||0);},0);
+  document.getElementById("xt-stats").textContent="Disk: C:\\  Files: "+files.length+"  Bytes: "+totalSz.toLocaleString()+"  Free: 2,146,414,080";
+}
+function launchXT() {
+  openOverlay("xt-root");
+  xtBuild(); xtRender();
+  document.getElementById("xt-root").focus();
+}
+document.getElementById("xt-root").addEventListener("keydown",function(e){
+  e.preventDefault();
+  if (e.key==="Escape"||e.key==="F10"){ closeOverlay("XTree Gold exited."); return; }
+  if (e.key==="Tab"){ XT.focus=XT.focus==="tree"?"files":"tree"; xtRender(); return; }
+  if (XT.focus==="tree") {
+    if (e.key==="ArrowUp")  { XT.treeIdx=Math.max(0,XT.treeIdx-1); XT.fileIdx=0; xtRender(); }
+    if (e.key==="ArrowDown"){ XT.treeIdx=Math.min(XT.treeNodes.length-1,XT.treeIdx+1); XT.fileIdx=0; xtRender(); }
+  } else {
+    var files=vfsEntries((XT.treeNodes[XT.treeIdx]||{path:"C:\\"}).path).filter(function(e){return e.node.t==="f";});
+    if (e.key==="ArrowUp")  { XT.fileIdx=Math.max(0,XT.fileIdx-1); xtRender(); }
+    if (e.key==="ArrowDown"){ XT.fileIdx=Math.min(files.length-1,XT.fileIdx+1); xtRender(); }
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// WORD PROCESSORS
+// ════════════════════════════════════════════════════════════════
+var WP_CFG = {
+  wp:   { title:"WordPerfect 5.1 -- AIC Secure Edition",
+          menu:"File  Edit  Search  Layout  Mark  Tools  Font  Graphics  Help",
+          fns:["F1=Cancel","F2=Search","F3=Help","F4=Indent","F5=List","F6=Bold","F7=Exit","F8=Underln","F9=Merge","F10=Save"],
+          hint:"F7=Exit  F10=Save  Start typing to edit.", cls:"wp-wp" },
+  ws:   { title:"WordStar 7.0 -- AIC Edition",
+          menu:"^KD=Save  ^KX=Exit  ^KQ=Abandon  ^B=ReFormat  ^F=Find  ^R=Replace",
+          fns:["F1=Help","F2=Save","F3=Load","F4=Print","F5=Find","F6=Replace","F7=BBlock","F8=EBlock","F9=Copy","F10=Move"],
+          hint:"^KD=Save  ^KX=Exit  ESC=Quit.", cls:"wp-ws" },
+  word: { title:"Microsoft Word 5.5",
+          menu:"File  Edit  View  Insert  Format  Utilities  Macro  Window  Help",
+          fns:["F1=Help","F2=Search","F3=Repeat","F4=Undo","F5=GoTo","F6=OtherWin","F7=Spell","F8=Extend","F9=Update","F10=Menu"],
+          hint:"Alt+F4=Exit  F2=Find  ESC=Quit.", cls:"wp-word" }
+};
+var wpCurrentCfg = null, wpSaved = false;
+
+function wpUpdateStatus() {
+  var ta = document.getElementById("wp-ta");
+  var before = ta.value.slice(0, ta.selectionStart||0);
+  var lines = before.split("\n");
+  var ln = lines.length, col = lines[lines.length-1].length+1;
+  if (!wpCurrentCfg) return;
+  if (wpCurrentCfg.cls === "wp-wp") {
+    document.getElementById("wp-bottom").textContent = "Doc 1  Pg 1  Ln "+ln+'"  Pos '+col+'"';
+  } else if (wpCurrentCfg.cls === "wp-ws") {
+    document.getElementById("wp-bottom").textContent = "L"+ln+"  C"+col+"  INSERT  WordStar 7.0";
+  } else {
+    document.getElementById("wp-bottom").textContent = "Pg1  Col"+col+"  Lines:"+ta.value.split("\n").length;
+  }
+}
+function launchWP(type) {
+  var cfg = WP_CFG[type];
+  wpCurrentCfg = cfg;
+  wpSaved = false;
+  var inner = document.getElementById("wp-inner");
+  inner.className = cfg.cls;
+  document.getElementById("wp-title").textContent = cfg.title;
+  document.getElementById("wp-menu").textContent  = cfg.menu;
+  document.getElementById("wp-status").textContent = cfg.hint;
+  document.getElementById("wp-fns").innerHTML = cfg.fns.map(function(f){ return '<span class="wp-fn">'+f+'</span>'; }).join("");
+  var ta = document.getElementById("wp-ta");
+  ta.value = ""; ta.className="";
+  openOverlay("wp-root");
+  wpUpdateStatus();
+  setTimeout(function(){ ta.focus(); }, 50);
+}
+document.getElementById("wp-ta").addEventListener("keydown", function(e){
+  if (e.key==="Escape"||(e.key==="F7"&&wpCurrentCfg&&wpCurrentCfg.cls==="wp-wp")) {
+    e.preventDefault();
+    var msg = wpSaved ? "Document saved ("+document.getElementById("wp-ta").value.length+" bytes)." : "Document discarded.";
+    closeOverlay(msg); return;
+  }
+  if (e.key==="F10"||(e.ctrlKey&&e.key.toLowerCase()==="s")) {
+    e.preventDefault();
+    wpSaved = true;
+    document.getElementById("wp-status").textContent = "Document saved. F7/ESC=Exit."; return;
+  }
+  setTimeout(wpUpdateStatus, 0);
+});
+document.getElementById("wp-ta").addEventListener("click", function(){ setTimeout(wpUpdateStatus,0); });
+
+// ════════════════════════════════════════════════════════════════
+// DELUXE PAINT II ENHANCED
+// ════════════════════════════════════════════════════════════════
+var CANVAS_W=60, CANVAS_H=22;
+var DP_TOOLS=[
+  {ch:"\u2588",lbl:"Full"},  {ch:"\u2593",lbl:"Dark"}, {ch:"\u2592",lbl:"Med"},
+  {ch:"\u2591",lbl:"Light"}, {ch:"\u00B7",lbl:"Dot"},  {ch:"\u25CF",lbl:"Circle"},
+  {ch:"\u25C6",lbl:"Diamond"},{ch:"\u2605",lbl:"Star"}, {ch:"\u256C",lbl:"Cross"},
+  {ch:"\u2550",lbl:"HLine"}, {ch:"\u2551",lbl:"VLine"}, {ch:" ",lbl:"Erase"}
+];
+var DP_COLORS=["#000","#00a","#0a0","#0aa","#a00","#a0a","#a50","#aaa","#555","#55f","#5f5","#5ff","#f55","#f5f","#ff5","#fff"];
+var dpGrid=[], dpTool=0, dpColor=14, dpMouseDown=false, dpCurX=0, dpCurY=0;
+
+function dpInit() {
+  dpGrid=[];
+  for(var y=0;y<CANVAS_H;y++){
+    var row=[];
+    for(var x=0;x<CANVAS_W;x++) row.push({ch:" ",col:"#00ff41"});
+    dpGrid.push(row);
+  }
+}
+function dpRenderToolbar() {
+  var tb = document.getElementById("dp-toolbar");
+  tb.innerHTML="";
+  var s1=document.createElement("div"); s1.className="dp-sec"; s1.textContent="TOOLS"; tb.appendChild(s1);
+  DP_TOOLS.forEach(function(t,i){
+    var b=document.createElement("div");
+    b.className="dp-btn"+(i===dpTool?" sel":"");
+    b.title=t.lbl; b.textContent=t.ch;
+    b.addEventListener("click",function(){ dpTool=i; dpRenderToolbar(); });
+    tb.appendChild(b);
+  });
+  var s2=document.createElement("div"); s2.className="dp-sec"; s2.textContent="COLOUR"; tb.appendChild(s2);
+  DP_COLORS.forEach(function(c,i){
+    var sw=document.createElement("div");
+    sw.className="dp-swatch"+(i===dpColor?" sel":"");
+    sw.style.background=c;
+    sw.addEventListener("click",function(){ dpColor=i; dpRenderToolbar(); dpRenderCanvas(); });
+    tb.appendChild(sw);
+  });
+}
+function dpRenderCanvas() {
+  var canvas=document.getElementById("dp-canvas");
+  canvas.innerHTML="";
+  for(var y=0;y<CANVAS_H;y++){
+    var rowEl=document.createElement("div");
+    rowEl.className="dp-row";
+    for(var x=0;x<CANVAS_W;x++){
+      var cell=dpGrid[y][x];
+      var span=document.createElement("span");
+      span.className="dp-cell"+(x===dpCurX&&y===dpCurY?" cur-cell":"");
+      span.style.color=cell.col;
+      span.textContent=cell.ch;
+      // closure to capture x,y
+      (function(px,py){
+        span.addEventListener("mouseenter",function(){ if(dpMouseDown) dpPaint(px,py); else{dpCurX=px;dpCurY=py;} });
+        span.addEventListener("mousedown", function(){ dpMouseDown=true; dpPaint(px,py); });
+        span.addEventListener("mouseup",   function(){ dpMouseDown=false; });
+      })(x,y);
+      rowEl.appendChild(span);
+    }
+    canvas.appendChild(rowEl);
+  }
+  document.getElementById("dp-bottom").innerHTML=
+    'Tool: <strong>'+DP_TOOLS[dpTool].lbl+'</strong> &nbsp;|&nbsp; Colour: <span style="background:'+DP_COLORS[dpColor]+';color:'+(dpColor<8?'#fff':'#000')+';padding:0 6px">'+DP_COLORS[dpColor]+'</span> &nbsp;|&nbsp; '+CANVAS_W+'x'+CANVAS_H;
+}
+function dpPaint(x,y) {
+  if (x<0||x>=CANVAS_W||y<0||y>=CANVAS_H) return;
+  dpGrid[y][x]={ch:DP_TOOLS[dpTool].ch, col:DP_COLORS[dpColor]};
+  dpCurX=x; dpCurY=y;
+  document.getElementById("dp-status").textContent="Painted ("+x+","+y+")  Tool: "+DP_TOOLS[dpTool].lbl+"  Colour: "+DP_COLORS[dpColor];
+  dpRenderCanvas();
+}
+document.addEventListener("mouseup",function(){ dpMouseDown=false; });
+
+function launchDP() {
+  openOverlay("dp-root");
+  dpInit(); dpRenderToolbar(); dpRenderCanvas();
+  document.getElementById("dp-root").focus();
+}
+document.getElementById("dp-root").addEventListener("keydown",function(e){
+  e.preventDefault();
+  if (e.key==="Escape"||e.key==="F10"){ closeOverlay("Deluxe Paint II Enhanced exited."); return; }
+  if (e.key==="c"||e.key==="C"){ dpInit(); dpRenderCanvas(); document.getElementById("dp-status").textContent="Canvas cleared."; return; }
+  if (e.key==="["){ dpTool=Math.max(0,dpTool-1); dpRenderToolbar(); return; }
+  if (e.key==="]"){ dpTool=Math.min(DP_TOOLS.length-1,dpTool+1); dpRenderToolbar(); return; }
+  if (e.key==="<"||e.key===","){ dpColor=Math.max(0,dpColor-1); dpRenderToolbar(); dpRenderCanvas(); return; }
+  if (e.key===">"||e.key==="."){ dpColor=Math.min(DP_COLORS.length-1,dpColor+1); dpRenderToolbar(); dpRenderCanvas(); return; }
+  if (e.key==="ArrowRight"){ dpPaint(Math.min(dpCurX+1,CANVAS_W-1),dpCurY); return; }
+  if (e.key==="ArrowLeft") { dpPaint(Math.max(dpCurX-1,0),dpCurY); return; }
+  if (e.key==="ArrowDown") { dpPaint(dpCurX,Math.min(dpCurY+1,CANVAS_H-1)); return; }
+  if (e.key==="ArrowUp")   { dpPaint(dpCurX,Math.max(dpCurY-1,0)); return; }
+  if (e.key===" ")         { dpPaint(dpCurX,dpCurY); return; }
+});
+
+// ════════════════════════════════════════════════════════════════
+// AUTODESK ANIMATOR PRO
+// ════════════════════════════════════════════════════════════════
+var DEMOS = [
+  { name:"BACKRM01.FLI", label:"Backrooms Level 0 -- Entity Encounter", fps:2, frames:[
+`  +---------------------------------------------------+
+  |                                                   |
+  |   .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  |
+  |                                                   |
+  |   .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  |
+  |                                                   |
+  |   .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  |
+  |                                                   |
+  +---------------------------------------------------+`,
+`  +===================================================+
+  ||          [ THE BACKROOMS ]                       ||
+  ||  +----------------------------------------------+||
+  ||  |++++++ Level 0 -- The Lobby  ++++++++++++++++|||
+  ||  |+++++++++++++++++++++++++++++++++++++++++++++++|||
+  ||  |++++  mono-yellow wallpaper, buzzing  ++++++++|||
+  ||  |+++++++++++++++++++++++++++++++++++++++++++++++|||
+  ||  +----------------------------------------------+||
+  ||        ##################################         ||
+  +===================================================+`,
+`  +===================================================+
+  |        [ASYNC RESEARCH INSTITUTE]                 |
+  |  +----------------------------------------------+ |
+  |  |                                              | |
+  |  |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~| |
+  |  |  ~   ENTITY DETECTED -- LEVEL 0             ~| |
+  |  |  ~   CLASSIFICATION: SMILER                 ~| |
+  |  |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~| |
+  |  |                         O O                  | |
+  |  +----------------------------------------------+ |
+  +===================================================+`,
+`  +===================================================+
+  |        [ASYNC RESEARCH INSTITUTE]                 |
+  |  +----------------------------------------------+ |
+  |  |  ============================================| |
+  |  |  =   ENTITY DETECTED -- LEVEL 0            =| |
+  |  |  =   THREAT: HIGH -- EXTINGUISH LIGHT       =| |
+  |  |  ============================================| |
+  |  |                       OO  OO                 | |
+  |  +----------------------------------------------+ |
+  +===================================================+`,
+`  +===================================================+
+  |  ########  ASYNC RESEARCH INSTITUTE  ########     |
+  |  +----------------------------------------------+ |
+  |  |  ############################################| |
+  |  |  # NOCLIP EVENT -- CONTAINMENT BREACH      #| |
+  |  |  # PERSONNEL STATUS: UNKNOWN               #| |
+  |  |  ############################################| |
+  |  |                @@@@@@  @@@@@@               | |
+  |  +----------------------------------------------+ |
+  +===================================================+`,
+`  +===================================================+
+  |                                                   |
+  |       +------------------------------------+      |
+  |       |                                    |      |
+  |       |    SECURE.  CONTAIN.  PROTECT.     |      |
+  |       |                                    |      |
+  |       |    -- ASYNC RESEARCH INSTITUTE --  |      |
+  |       |                                    |      |
+  |       +------------------------------------+      |
+  +===================================================+`
+  ]},
+  { name:"LOGO.FLI", label:"ARI Logo Animation", fps:3, frames:[
+`\n    #####\n`,
+`\n    #####  #####\n`,
+`\n    #####  #####  ####\n`,
+`\n    #####  #####  ####  ###\n    A  S  Y  N  C    R  E  S.\n`,
+`\n    #####  #####  ####  ###\n    A  S  Y  N  C    R  E  S.\n    ASYNC RESEARCH INSTITUTE\n    AIC-6 TERMINAL  v2621.05\n`
+  ]}
+];
+
+var animDemoIdx=0, animFrameIdx=0, animPlaying=true, animSpeed=1, animTimer=null;
+
+function animRender() {
+  var demo = DEMOS[animDemoIdx];
+  document.getElementById("anim-frame").textContent = demo.frames[animFrameIdx]||"";
+  document.getElementById("anim-title").textContent = "Autodesk Animator Pro -- AIC Edition  |  "+demo.name;
+  document.getElementById("anim-label").textContent = demo.label;
+  var total = demo.frames.length;
+  var prog  = total > 1 ? Math.round((animFrameIdx/(total-1))*40) : 40;
+  var bar   = "";
+  for(var i=0;i<40;i++) bar += i<prog?"\u2588":"\u2591";
+  document.getElementById("anim-tl").textContent =
+    "Fr:"+String(animFrameIdx+1).padStart(3,"0")+"/"+total+"  ["+bar+"]  "+
+    (animPlaying?">>> PLAY":"|| PAUSE")+"  Speed:"+animSpeed+"x";
+}
+function animStep() {
+  animFrameIdx = (animFrameIdx+1) % DEMOS[animDemoIdx].frames.length;
+  animRender();
+}
+function animRestart() {
+  if (animTimer) clearInterval(animTimer);
+  animTimer = null;
+  if (animPlaying) animTimer = setInterval(animStep, Math.round(1000/(DEMOS[animDemoIdx].fps*animSpeed)));
+}
+function launchAnim() {
+  openOverlay("anim-root");
+  animFrameIdx=0; animPlaying=true; animSpeed=1;
+  animRestart(); animRender();
+  document.getElementById("anim-root").focus();
+}
+document.getElementById("anim-root").addEventListener("keydown",function(e){
+  e.preventDefault();
+  if (e.key==="Escape"||e.key==="F10"){ if(animTimer) clearInterval(animTimer); animTimer=null; closeOverlay("Autodesk Animator exited."); return; }
+  if (e.key===" "){ animPlaying=!animPlaying; animRestart(); animRender(); return; }
+  if (e.key==="ArrowRight"){ animFrameIdx=(animFrameIdx+1)%DEMOS[animDemoIdx].frames.length; animRender(); return; }
+  if (e.key==="ArrowLeft") { animFrameIdx=(animFrameIdx-1+DEMOS[animDemoIdx].frames.length)%DEMOS[animDemoIdx].frames.length; animRender(); return; }
+  if (e.key==="+"||e.key==="="){ animSpeed=Math.min(4,animSpeed+0.5); animRestart(); animRender(); return; }
+  if (e.key==="-"){ animSpeed=Math.max(0.25,animSpeed-0.25); animRestart(); animRender(); return; }
+  if (e.key==="Tab"){ animDemoIdx=(animDemoIdx+1)%DEMOS.length; animFrameIdx=0; animRestart(); animRender(); return; }
+});
+</script>
+</body>
+</html>
